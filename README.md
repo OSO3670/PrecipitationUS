@@ -1,5 +1,5 @@
 ### PrecipitationUS
-#Plotting the Precipitation Using Online Sourced Spatial Data
+**Plotting the Precipitation Using Online Sourced Spatial Data**
 
 The code is composed of several steps that perform different operations on data related to precipitation in the United States.
 
