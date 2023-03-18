@@ -1,4 +1,4 @@
-### PrecipitationUS
+### Creating a Map of Annual Precipitation in the Contiguous United States Using R
 **Plotting the Precipitation Using Online Sourced Spatial Data**
 
 The code is composed of several steps that perform different operations on data related to precipitation in the United States.
