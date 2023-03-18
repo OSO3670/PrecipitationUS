@@ -1,0 +1,77 @@
+# Load required packages
+library(tidyverse)
+library(sf)
+library(raster)
+library("maps")
+library(ggplot2)
+library(tidyverse)
+library(sf)
+# Load precipitation data as raster object
+prism_raster <- raster("_ppt_30yr_normal_4kmM4_all_bil/PRISM_ppt_30yr_normal_4kmM4_annual_bil.bil")
+
+library(downloader)
+
+
+# Crop raster to extent of US states
+states_sf <- st_read("cb_2018_us_state_500k/cb_2018_us_state_500k.shp")
+prism_raster_cropped <- crop(prism_raster, extent(states_sf))
+
+# Convert cropped raster to sf object
+prism_sf <- st_as_sf(as(prism_raster_cropped, "SpatialPixelsDataFrame"))
+
+length(prism_sf$PRISM_ppt_30yr_normal_4kmM4_annual_bil)
+length(states_sf$STATEFP)
+# Perform spatial join based on intersection of polygons
+prism_sf <- st_join(prism_sf, states_sf["NAME"])
+# Remove rows with NA in NAME column
+prism_sf <- prism_sf %>% filter(!is.na(NAME))
+
+head(prism_sf)
+head(states_sf)
+
+annual_precip_by_state <- prism_sf %>%
+  group_by(NAME) %>%
+  summarize(precipitation = mean(extract(prism_raster_cropped, st_coordinates(geometry))))
+
+annual_precip_by_state$precipitation <- annual_precip_by_state$precipitation / 25.4
+
+
+# Join with state polygons
+annual_precip_by_state_sf <- st_as_sf(annual_precip_by_state, coords = c("longitude", "latitude"), crs = 4326)
+annual_precip_by_state_sf <- st_join(annual_precip_by_state_sf, states_sf)
+
+annual_precip_by_state_sf$precipitation <- as.numeric(annual_precip_by_state_sf$precipitation)
+
+max(annual_precip_by_state_sf$precipitation)
+
+# Get centroid coordinates for each state
+#annual_precip_by_state_sf <- st_centroid(annual_precip_by_state_sf)
+
+# Extract lat and long from the geometry column
+#annual_precip_by_state_sf$lon <- st_coordinates(annual_precip_by_state_sf)[, 1]
+#annual_precip_by_state_sf$lat <- st_coordinates(annual_precip_by_state_sf)[, 2]
+
+write_xlsx(annual_precip_by_state_sf, "map3.xlsx")
+
+
+
+# Load shapefile
+states_sf <- st_read("/cb_2018_us_state_20m/cb_2018_us_state_20m.shp") %>% 
+  filter(!NAME %in% c("Alaska", "Hawaii")) %>% # Remove Alaska and Hawaii
+  mutate(NAME = str_to_title(NAME))%>% 
+  arrange(NAME)# Convert state names to title case
+
+View(states_sf)
+# Read precipitation data from Excel
+prcp_data <- read_excel("Documents/map3.xlsx", sheet = "Sheet1")
+
+# Join precipitation data to shapefile
+states_sf <- left_join(states_sf, prcp_data, by = c("NAME" = "State"))
+
+# Plot map
+ggplot(states_sf) +
+  geom_sf(aes(fill = Precipitation)) +
+  scale_fill_gradient(low = "green", high = "blue") +
+  labs(title = "Precipitation in Contiguous United States", 
+       subtitle = "Data Source: Excel Sheet1", 
+       fill = "Precipitation (inches)")
